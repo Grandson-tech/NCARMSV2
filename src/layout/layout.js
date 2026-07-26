@@ -143,10 +143,16 @@ export async function initialiseLayout() {
       <div id="footer-slot" class="bg-white px-4 md:px-6"></div>
     </div>`;
 
+  // Determine the app root path (handles both / and /NCARMSV2/ deployments)
+  const pathname = window.location.pathname;
+  const appRoot = pathname.includes('/pages/') 
+    ? pathname.substring(0, pathname.lastIndexOf('/pages/') + 1)
+    : '/';
+
   await Promise.all([
-    loadFragment(document.querySelector('#sidebar-slot'), '../layouts/sidebar.html'),
-    loadFragment(document.querySelector('#topbar-slot'), '../layouts/topbar.html'),
-    loadFragment(document.querySelector('#footer-slot'), '../layouts/footer.html'),
+    loadFragment(document.querySelector('#sidebar-slot'), appRoot + 'layouts/sidebar.html'),
+    loadFragment(document.querySelector('#topbar-slot'), appRoot + 'layouts/topbar.html'),
+    loadFragment(document.querySelector('#footer-slot'), appRoot + 'layouts/footer.html'),
   ]);
 
   document.title = `${title} | ${BRANDING.abbreviation} — ${BRANDING.departmentName}`;
