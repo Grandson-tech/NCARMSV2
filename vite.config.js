@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
 
+const base = process.env.GITHUB_PAGES ? '/NCARMSV2/' : '/';
+
 export default defineConfig({
-  base: "/NCARMSV2/",
+  base,
   appType: 'mpa',
 
   build: {
