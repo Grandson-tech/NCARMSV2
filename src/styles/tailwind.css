@@ -1,0 +1,160 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-workspace;
+  }
+
+  body {
+    @apply min-h-screen bg-workspace font-sans antialiased text-slate-900;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    @apply transition-[color,background-color,border-color,box-shadow,transform] duration-200 ease-out;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    @apply cursor-not-allowed;
+  }
+
+  button {
+    @apply !rounded-control;
+  }
+
+  input:not([type='file']):not([type='checkbox']):not([type='radio']),
+  select {
+    @apply !rounded-control;
+  }
+
+  input:not([type='file']):not([type='checkbox']):not([type='radio']),
+  select {
+    @apply !h-11;
+  }
+
+  textarea {
+    @apply !rounded-control;
+  }
+
+  ::selection {
+    @apply bg-blue-100 text-slate-900;
+  }
+}
+
+@layer components {
+  .ncarms-table {
+    @apply min-w-full border-collapse;
+  }
+
+  .ncarms-surface {
+    @apply rounded-surface border border-slate-200/80 bg-white shadow-surface;
+  }
+
+  .ncarms-metric-card {
+    @apply flex min-h-40 flex-col rounded-surface border border-amber-100/90 bg-warm-surface p-5 shadow-surface transition-all duration-200 hover:-translate-y-0.5 hover:shadow-elevated sm:p-6;
+  }
+
+  .ncarms-table thead th {
+    @apply sticky top-0 z-10 bg-slate-50/95 shadow-sm backdrop-blur-sm;
+  }
+
+  .ncarms-table tbody tr:nth-child(even) {
+    @apply bg-slate-50/60;
+  }
+
+  .ncarms-table tbody tr {
+    @apply transition-colors duration-150;
+  }
+
+  .ncarms-badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold leading-none ring-1 ring-inset;
+  }
+
+  @keyframes dashboard-toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-0.5rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  #dashboard-content > section.rounded-lg {
+    @apply !rounded-surface !border-slate-200/80 !p-5 !shadow-surface md:!p-6;
+  }
+
+  #dashboard-content > section[aria-labelledby] > h2 {
+    @apply !text-[1.0625rem] !font-semibold !tracking-[-0.01em] !text-slate-900;
+  }
+
+  #dashboard-content > section[aria-labelledby] > p {
+    @apply !mt-1.5 !leading-6 !text-slate-600;
+  }
+
+  #dashboard-overview-title {
+    @apply text-xs font-semibold uppercase tracking-[0.1em] text-slate-500;
+  }
+
+  #dashboard-overview-title + p {
+    @apply mt-2 text-[15px] leading-6 text-slate-600;
+  }
+
+  #dashboard-page-meta {
+    @apply min-h-5;
+  }
+
+  #dashboard-content .ncarms-metric-card [data-summary-value='currentAttachmentCycle'] {
+    @apply text-2xl leading-tight tracking-[-0.025em] md:text-[1.7rem];
+  }
+
+  #dashboard-content > section:has(#dashboard-departments-title) .ncarms-surface {
+    @apply mt-4 rounded-none border-x-0 border-b-0 border-t border-slate-200 shadow-none;
+  }
+
+  #dashboard-content > section:has(#dashboard-departments-title) {
+    @apply overflow-hidden !p-0;
+  }
+
+  #dashboard-content > section:has(#dashboard-departments-title) > h2,
+  #dashboard-content > section:has(#dashboard-departments-title) > p {
+    @apply mx-6;
+  }
+
+  #dashboard-content > section:has(#dashboard-departments-title) > h2 {
+    @apply mt-6;
+  }
+
+  #dashboard-content > section:has(#dashboard-departments-title) > p {
+    @apply mb-5;
+  }
+
+  #breadcrumb-list::before {
+    content: 'NCARMS /';
+    @apply shrink-0 text-slate-400;
+  }
+
+  main[tabindex='-1'] {
+    @apply !bg-workspace;
+  }
+
+  @media print {
+    body::before {
+      content: 'NCARMS · Narok County Department of Education, Sports, Youth Affairs, Gender & Social Services';
+      display: block;
+      margin: 0 0 1rem;
+      color: #0f172a;
+      font-size: 11pt;
+      font-weight: 600;
+    }
+  }
+}
