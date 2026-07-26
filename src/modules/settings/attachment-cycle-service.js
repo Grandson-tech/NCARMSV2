@@ -1,4 +1,5 @@
 import { callDatabaseFunction, countRows, deleteRows, insertRows, selectRows, updateRows } from '../../../supabase/database.js';
+import { loadAndCacheActiveCycle, activateAndNotifyCycle, getActiveCycle } from '../../shared/active-cycle-manager.js';
 
 const CYCLE_COLUMNS = 'id, name, year, start_month, end_month, is_active, created_at, updated_at';
 const STUDENT_CYCLE_COLUMNS = 'attachment_cycle_id';
@@ -41,8 +42,13 @@ export async function loadAttachmentCycles() {
 }
 
 export async function loadActiveAttachmentCycle() {
-  const cycles = await selectRows('attachment_cycles', { columns: CYCLE_COLUMNS, filters: { is_active: true } });
-  return cycles[0] ? presentCycle(cycles[0], 0) : null;
+  const activeCycle = await getActiveCycle();
+  return activeCycle ? {
+    id: activeCycle.id,
+    name: activeCycle.name,
+    year: activeCycle.year,
+    isActive: activeCycle.isActive,
+  } : null;
 }
 
 export async function createAttachmentCycle(values) {
@@ -60,7 +66,7 @@ export async function updateAttachmentCycle(cycleId, values) {
 }
 
 export function activateAttachmentCycle(cycleId) {
-  return callDatabaseFunction('activate_attachment_cycle', { target_cycle_id: cycleId });
+  return activateAndNotifyCycle(cycleId);
 }
 
 export async function deleteAttachmentCycle(cycleId) {

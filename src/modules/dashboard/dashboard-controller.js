@@ -1,4 +1,5 @@
 import { getCachedStaffProfile } from '../../auth/staff-access.js';
+import { subscribeToActiveCycleChanges } from '../../shared/active-cycle-manager.js';
 import { createDashboardDepartmentList } from '../../components/dashboard-department-list.js';
 import { createDashboardListDialog } from '../../components/dashboard-list-dialog.js';
 import { createDashboardQuickActions } from '../../components/dashboard-quick-actions.js';
@@ -6,7 +7,7 @@ import { createDashboardRecentRegistrations } from '../../components/dashboard-r
 import { createDashboardWelcomeToast } from '../../components/dashboard-welcome-toast.js';
 import { createPageState, renderPageState } from '../../components/page-state.js';
 import { createSummaryCard } from '../../components/summary-card.js';
-import { loadDashboardStatistics } from './dashboard-service.js';
+import { createDashboardState } from './dashboard-state.js';
 
 const SUMMARY_CARD_STRUCTURE = Object.freeze([
   { id: 'totalStudents', title: 'Total Students', description: 'Registered attachment students.', action: 'students', icon: 'students' },
@@ -99,92 +100,130 @@ function activateElement(element) {
   return element && (element.tagName !== 'TR' || element.dataset.studentDetailsId);
 }
 
+function updateDashboardCycleHeader(activeCycle) {
+  const status = document.querySelector('#dashboard-cycle-status');
+  if (!status) return;
+  if (!activeCycle) {
+    status.hidden = true;
+    return;
+  }
+  status.querySelector('[data-dashboard-cycle-name]').textContent = `${activeCycle.name} ${activeCycle.year}`;
+  status.hidden = false;
+}
+
+function createDashboardView({ profile, statistics }) {
+  const fragment = document.createDocumentFragment();
+  const message = statistics.hasActiveAttachmentCycle
+    ? `There are currently ${formatStatistic(statistics.totalStudents)} registered attachment students across ${formatStatistic(statistics.departmentCount)} departments in the active cycle.`
+    : 'No active attachment cycle is currently configured.';
+  const { toast, dismiss } = createDashboardWelcomeToast({
+    greeting: getGreeting(),
+    profile,
+    currentDate: formatCurrentDate(),
+    message,
+  });
+  fragment.append(toast);
+
+  const overview = document.createElement('section');
+  overview.setAttribute('aria-labelledby', 'dashboard-overview-title');
+  const heading = document.createElement('h2');
+  heading.id = 'dashboard-overview-title';
+  heading.className = 'text-lg font-semibold text-slate-900';
+  heading.textContent = 'Overview';
+  const description = document.createElement('p');
+  description.className = 'mt-1 text-sm leading-6 text-slate-600';
+  description.textContent = 'Live operational information for the configured active attachment cycle.';
+  const grid = document.createElement('div');
+  grid.className = 'mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4';
+  SUMMARY_CARD_STRUCTURE.forEach((card) => grid.append(createSummaryCard({ ...card, value: formatStatistic(statistics[card.id]) })));
+  overview.append(heading, description, grid);
+  if (!statistics.hasActiveAttachmentCycle) {
+    const cycleEmptyState = createPageState({
+      type: 'empty',
+      title: 'No active attachment cycle',
+      message: 'Create and activate an attachment cycle in Settings before registering new students.',
+    });
+    cycleEmptyState.classList.add('mt-4');
+    overview.append(cycleEmptyState);
+  }
+
+  const departmentSection = createDashboardSection({
+    id: 'dashboard-departments-title',
+    title: 'Students by Department',
+    description: 'Registered students in each county department for the active cycle.',
+    content: createDashboardDepartmentList(statistics.departments),
+    className: 'mt-6',
+  });
+  const recentSection = createDashboardSection({
+    id: 'dashboard-recent-registrations-title',
+    title: 'Recent Registrations',
+    description: 'The five most recently created student records in the active cycle.',
+    content: createDashboardRecentRegistrations(statistics.recentStudents),
+    className: 'mt-6',
+  });
+  const quickActions = createDashboardSection({
+    id: 'dashboard-quick-actions-title',
+    title: 'Quick Actions',
+    description: 'Common NCARMS tasks for ICT and HR officers.',
+    content: createDashboardQuickActions(),
+    className: 'mt-6',
+  });
+  fragment.append(overview, departmentSection, recentSection, quickActions);
+
+  const departmentDialog = createDashboardListDialog({
+    id: 'dashboard-department-dialog',
+    title: 'Departments',
+    items: statistics.departments.map(({ name }) => ({ name })),
+  });
+  const universityDialog = createDashboardListDialog({
+    id: 'dashboard-university-dialog',
+    title: 'Universities Represented',
+    items: statistics.universities,
+    showCount: true,
+  });
+  return {
+    fragment,
+    toast,
+    dismiss,
+    dialogs: [departmentDialog.dialog, universityDialog.dialog],
+    departmentModal: initialiseDialog(departmentDialog.dialog, departmentDialog.close),
+    universityModal: initialiseDialog(universityDialog.dialog, universityDialog.close),
+  };
+}
+
 export async function initialiseDashboard() {
   const content = document.querySelector('#dashboard-content');
   if (!content) return;
   renderPageState(content, { type: 'loading', title: 'Loading dashboard', message: 'Preparing your workspace.' });
 
   try {
-    const [profile, statistics] = await Promise.all([getCachedStaffProfile(), loadDashboardStatistics()]);
-    const fragment = document.createDocumentFragment();
-    const { toast, dismiss } = createDashboardWelcomeToast({
-      greeting: getGreeting(),
-      profile,
-      currentDate: formatCurrentDate(),
-      message: `There are currently ${formatStatistic(statistics.totalStudents)} registered attachment students across ${formatStatistic(statistics.departmentCount)} departments.`,
-    });
-    fragment.append(toast);
+    const profile = await getCachedStaffProfile();
+    const state = createDashboardState({ profile });
+    let dialogNodes = [];
+    let departmentModal = null;
+    let universityModal = null;
 
-    const overview = document.createElement('section');
-    overview.setAttribute('aria-labelledby', 'dashboard-overview-title');
-    const heading = document.createElement('h2');
-    heading.id = 'dashboard-overview-title';
-    heading.className = 'text-lg font-semibold text-slate-900';
-    heading.textContent = 'Overview';
-    const description = document.createElement('p');
-    description.className = 'mt-1 text-sm leading-6 text-slate-600';
-    description.textContent = 'Live operational information from registered students, departments, and the configured active attachment cycle.';
-    const grid = document.createElement('div');
-    grid.className = 'mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4';
-    SUMMARY_CARD_STRUCTURE.forEach((card) => grid.append(createSummaryCard({ ...card, value: formatStatistic(statistics[card.id]) })));
-    overview.append(heading, description, grid);
-    if (!statistics.hasActiveAttachmentCycle) {
-      const cycleEmptyState = createPageState({
-        type: 'empty',
-        title: 'No active attachment cycle',
-        message: 'Create and activate an attachment cycle in Settings before registering new students.',
-      });
-      cycleEmptyState.classList.add('mt-4');
-      overview.append(cycleEmptyState);
-    }
+    const renderSnapshot = (snapshot) => {
+      dialogNodes.forEach((dialog) => dialog.remove());
+      const view = createDashboardView(snapshot);
+      dialogNodes = view.dialogs;
+      departmentModal = view.departmentModal;
+      universityModal = view.universityModal;
+      content.replaceChildren(view.fragment);
+      updateDashboardCycleHeader(snapshot.activeCycle);
+      initialiseToast(view.toast, view.dismiss);
+    };
 
-    const departmentSection = createDashboardSection({
-      id: 'dashboard-departments-title',
-      title: 'Students by Department',
-      description: 'Registered students in each county department.',
-      content: createDashboardDepartmentList(statistics.departments),
-      className: 'mt-6',
-    });
-    const recentSection = createDashboardSection({
-      id: 'dashboard-recent-registrations-title',
-      title: 'Recent Registrations',
-      description: 'The five most recently created student records.',
-      content: createDashboardRecentRegistrations(statistics.recentStudents),
-      className: 'mt-6',
-    });
-    const quickActions = createDashboardSection({
-      id: 'dashboard-quick-actions-title',
-      title: 'Quick Actions',
-      description: 'Common NCARMS tasks for ICT and HR officers.',
-      content: createDashboardQuickActions(),
-      className: 'mt-6',
-    });
-    fragment.append(overview, departmentSection, recentSection, quickActions);
-    content.replaceChildren(fragment);
-    initialiseToast(toast, dismiss);
-
-    const departmentDialog = createDashboardListDialog({
-      id: 'dashboard-department-dialog',
-      title: 'Departments',
-      items: statistics.departments.map(({ name }) => ({ name })),
-    });
-    const universityDialog = createDashboardListDialog({
-      id: 'dashboard-university-dialog',
-      title: 'Universities Represented',
-      items: statistics.universities,
-      showCount: true,
-    });
-    const departmentModal = initialiseDialog(departmentDialog.dialog, departmentDialog.close);
-    const universityModal = initialiseDialog(universityDialog.dialog, universityDialog.close);
+    renderSnapshot(await state.refresh());
 
     const handleDashboardAction = (element) => {
       if (!activateElement(element)) return;
       if (element.dataset.dashboardAction === 'students') {
         window.location.assign('student-records.html');
       } else if (element.dataset.dashboardAction === 'departments') {
-        departmentModal.open(element);
+        departmentModal?.open(element);
       } else if (element.dataset.dashboardAction === 'universities') {
-        universityModal.open(element);
+        universityModal?.open(element);
       } else if (element.dataset.studentDetailsId) {
         window.location.assign(`student-details.html?id=${encodeURIComponent(element.dataset.studentDetailsId)}`);
       }
@@ -199,6 +238,26 @@ export async function initialiseDashboard() {
       event.preventDefault();
       handleDashboardAction(element);
     });
+
+    const unsubscribe = subscribeToActiveCycleChanges(async (activeCycle) => {
+      try {
+        renderSnapshot(await state.refresh(activeCycle));
+      } catch {
+        content.replaceChildren(createPageState({
+          type: 'error',
+          title: 'Dashboard unavailable',
+          message: 'The active cycle changed, but the dashboard could not be refreshed. Please try again.',
+        }));
+      }
+    });
+    const observer = new MutationObserver(() => {
+      if (!document.body.contains(content)) {
+        unsubscribe();
+        dialogNodes.forEach((dialog) => dialog.remove());
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
   } catch {
     content.replaceChildren(createPageState({
       type: 'error',

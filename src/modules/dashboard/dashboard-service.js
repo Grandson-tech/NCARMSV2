@@ -1,8 +1,10 @@
 import { selectRows } from '../../../supabase/database.js';
-import { loadActiveAttachmentCycle } from '../settings/attachment-cycle-service.js';
+import { getActiveCycle } from '../../shared/active-cycle-manager.js';
 
-const STUDENT_COLUMNS = 'id, passport_photo_url, full_name, university, department_id, created_at, departments(name)';
+const STUDENT_COLUMNS = 'id, passport_photo_url, full_name, university, department_id, attachment_cycle_id, created_at, departments(name)';
 const DEPARTMENT_COLUMNS = 'id, name';
+let departmentCache = null;
+let departmentRequest = null;
 
 function formatDate(value) {
   if (!value || Number.isNaN(new Date(value).getTime())) return '—';
@@ -13,11 +15,24 @@ function newestFirst(first, second) {
   return new Date(second.created_at || 0) - new Date(first.created_at || 0);
 }
 
-export async function loadDashboardStatistics() {
-  const [students, departments, activeCycle] = await Promise.all([
-    selectRows('students', { columns: STUDENT_COLUMNS }),
-    selectRows('departments', { columns: DEPARTMENT_COLUMNS }),
-    loadActiveAttachmentCycle(),
+async function loadDashboardDepartments() {
+  if (departmentCache) return departmentCache;
+  if (!departmentRequest) {
+    departmentRequest = selectRows('departments', { columns: DEPARTMENT_COLUMNS })
+      .then((departments) => {
+        departmentCache = departments;
+        return departmentCache;
+      })
+      .finally(() => { departmentRequest = null; });
+  }
+  return departmentRequest;
+}
+
+export async function loadDashboardStatistics({ activeCycle = null } = {}) {
+  const cycle = activeCycle ?? await getActiveCycle();
+  const [students, departments] = await Promise.all([
+    cycle ? selectRows('students', { columns: STUDENT_COLUMNS, filters: { attachment_cycle_id: cycle.id } }) : Promise.resolve([]),
+    loadDashboardDepartments(),
   ]);
   const departmentNames = new Map(departments.map((department) => [department.id, department.name]));
   const departmentCounts = new Map(departments.map((department) => [department.id, 0]));
@@ -30,11 +45,11 @@ export async function loadDashboardStatistics() {
   const newestStudents = [...students].sort(newestFirst);
   return Object.freeze({
     totalStudents: students.length,
-    departmentCount: departments.length,
+    departmentCount: [...departmentCounts.values()].filter((count) => count > 0).length,
     universityCount: universityCounts.size,
-    currentAttachmentCycle: activeCycle ? `${activeCycle.name} ${activeCycle.year}` : '—',
-    hasActiveAttachmentCycle: Boolean(activeCycle),
-    departments: departments.map((department) => ({ id: department.id, name: department.name ?? '—', studentCount: departmentCounts.get(department.id) ?? 0 })).sort((first, second) => second.studentCount - first.studentCount || first.name.localeCompare(second.name)),
+    currentAttachmentCycle: cycle ? `${cycle.name} ${cycle.year}` : '—',
+    hasActiveAttachmentCycle: Boolean(cycle),
+    departments: departments.map((department) => ({ id: department.id, name: department.name ?? '—', studentCount: departmentCounts.get(department.id) ?? 0 })).filter((department) => department.studentCount > 0).sort((first, second) => second.studentCount - first.studentCount || first.name.localeCompare(second.name)),
     universities: [...universityCounts.entries()].map(([name, count]) => ({ name, count })).sort((first, second) => first.name.localeCompare(second.name)),
     recentStudents: newestStudents.slice(0, 5).map((student) => ({
       id: student.id,
