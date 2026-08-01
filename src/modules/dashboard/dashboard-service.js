@@ -1,5 +1,6 @@
 import { selectRows } from '../../../supabase/database.js';
 import { getActiveCycle } from '../../shared/active-cycle-manager.js';
+import { formatUniversityName } from '../../shared/normalize-university.js';
 
 const STUDENT_COLUMNS = 'id, passport_photo_url, full_name, university, department_id, attachment_cycle_id, created_at, departments(name)';
 const DEPARTMENT_COLUMNS = 'id, name';
@@ -39,7 +40,7 @@ export async function loadDashboardStatistics({ activeCycle = null } = {}) {
   const universityCounts = new Map();
   students.forEach((student) => {
     if (departmentCounts.has(student.department_id)) departmentCounts.set(student.department_id, departmentCounts.get(student.department_id) + 1);
-    const university = String(student.university ?? '').trim();
+    const university = formatUniversityName(student.university);
     if (university) universityCounts.set(university, (universityCounts.get(university) ?? 0) + 1);
   });
   const newestStudents = [...students].sort(newestFirst);

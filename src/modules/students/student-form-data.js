@@ -1,4 +1,5 @@
 import { clearFieldErrors, setFieldError } from '../../components/form-field.js';
+import { formatUniversityName } from '../../shared/normalize-university.js';
 import { getPassportPhotoValidationMessage } from '../../shared/passport-photo-storage.js';
 
 function trimmedValue(form, name) { return form.elements[name]?.value.trim() ?? ''; }
@@ -38,7 +39,7 @@ export function createStudentPayload(form, { includeStudentNumber = true, attach
     email: optionalValue(trimmedValue(form, 'email')),
     phone: optionalValue(trimmedValue(form, 'phone')),
     national_id: optionalValue(trimmedValue(form, 'national-id')),
-    university: optionalValue(trimmedValue(form, 'university')),
+    university: optionalValue(formatUniversityName(trimmedValue(form, 'university'))),
     course: optionalValue(trimmedValue(form, 'course')),
     skills: optionalValue(trimmedValue(form, 'skills')),
     attachment_start_date: optionalValue(trimmedValue(form, 'attachment-start-date')),
