@@ -19,6 +19,25 @@ function normaliseDocument(document) {
   };
 }
 
+function searchableValue(value) {
+  return String(value ?? '').trim().toLocaleLowerCase();
+}
+
+export function filterDocumentRecords(documents, { search = '', documentType = '', status = '' } = {}) {
+  const searchTerm = searchableValue(search);
+  return documents.filter((document) => {
+    if (documentType && document.document_type !== documentType) return false;
+    if (status && document.status !== undefined && document.status !== status) return false;
+    if (!searchTerm) return true;
+    return [
+      document.studentName,
+      document.document_type,
+      document.original_file_name,
+      document.uploaderName,
+    ].some((value) => searchableValue(value).includes(searchTerm));
+  });
+}
+
 function relationshipUnavailable(error) {
   return error?.code === 'PGRST200' || error?.code === 'PGRST201';
 }

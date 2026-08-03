@@ -77,6 +77,14 @@ export function renderDocumentTableEmpty(tableBody, options) {
   tableBody.replaceChildren(createStateRow(createDocumentEmptyState(options)));
 }
 
+export function renderDocumentTableNoMatches(tableBody) {
+  const content = createDocumentEmptyState({
+    title: 'No documents match the selected search or filters.',
+    message: 'Adjust or clear the current search and filters to view matching documents.',
+  });
+  tableBody.replaceChildren(createStateRow(content));
+}
+
 function createStateRow(content) {
   const row = document.createElement('tr');
   const cell = document.createElement('td');
@@ -125,7 +133,7 @@ export function renderDocumentRows(tableBody, documents) {
       createCell(formatValue(record.original_file_name)),
       createCell(formatValue(record.uploaderName ?? record.staff_profiles?.full_name)),
       createCell(formatDate(record.uploaded_at), 'whitespace-nowrap px-4 py-3 text-sm text-slate-700'),
-      createCell(createDocumentStatusBadge(null)),
+      createCell(createDocumentStatusBadge(record.status ?? null)),
       createCell(createDocumentActions(record.id)),
     );
     return row;
